@@ -1,29 +1,54 @@
 import { response } from "express";
+import Usuario from "../models/usuario.js";
+import bcryptjs from "bcryptjs";
+import usuario from "../models/usuario.js";
 
-const usuariosGet = (req, res = response) => {
-    const {q,nombre='no name',apikey,page= 1,limit} = req.query
+const usuariosGet = async (req, res = response) => {
+  //const { q, nombre = "no name", apikey, page = 1, limit } = req.query;
+
+  const { limite = 5, desde = 0 } = req.query;
+  const query = {estado: true}
+
+  // const usuarios = await Usuario.find(query).skip(desde).limit(Number(limite));
+
+ 
+  // const total = await Usuario.countDocuments(query);
+  
+  const [total, usuarios] = await Promise.all([Usuario.countDocuments(query),Usuario.find(query).skip(desde).limit(Number(limite))])
   res.json({
-    msg: "get APi -controllers",
-    q,
-    nombre,
-    apikey,
-    page,
-    limit
+    usuarios,total 
   });
 };
-const usuariosPost = (req, res = response) => {
-    const {nombre, edad} = req.body;
+const usuariosPost = async (req, res = response) => {
+  const { nombre, correo, password, rol } = req.body;
+  const usuario = new Usuario({ nombre, correo, password, rol });
+
+  //Encriptar la contraseña
+  const salt = bcryptjs.genSaltSync(10);
+  usuario.password = bcryptjs.hashSync(password, salt);
+
+  //Guardar en DB
+  await usuario.save();
+
+  // const {nombre, edad} = req.body;
   res.json({
-    msg: "Post APi -controllers",
-    nombre,
-    edad
+    usuario,
   });
 };
-const usuariosPut = (req, res = response) => {
-    const id  = req.params.id;
+const usuariosPut = async (req, res = response) => {
+  const id = req.params.id;
+  const { _id, password, google, correo, ...resto } = req.body;
+
+  //Validar contra base de datos
+  if (password) {
+    //Encriptar la ontraseña
+    const salt = bcryptjs.genSaltSync(10);
+    resto.password = bcryptjs.hashSync(password, salt);
+  }
+  const usuario = await Usuario.findByIdAndUpdate(id, resto);
+
   res.json({
-    msg: "Put APi -controllers",
-    id
+    usuario,
   });
 };
 const usuariosPatch = (req, res = response) => {
@@ -31,9 +56,19 @@ const usuariosPatch = (req, res = response) => {
     msg: "Patch APi -controllers",
   });
 };
-const usuariosDelete = (req, res = response) => {
+const usuariosDelete = async (req, res = response) => {
+const {id} = req.params;
+
+// fisicamente lo barramos
+//const usuario = await Usuario.findByIdAndDelete(id);
+
+const usuario = await Usuario.findByIdAndUpdate(id,{estado: false})
+
+
+
   res.json({
     msg: "Delete APi -controllers",
+    id
   });
 };
 
